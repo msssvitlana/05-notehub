@@ -3,7 +3,7 @@ import css from './Loader.module.css'
 
  const Loader = () => {
     return (
-      <p className={css.text}>Loading movies, please wait...</p>  
+      <p className={css.text}>Loading, please wait...</p>  
     )
 }
 

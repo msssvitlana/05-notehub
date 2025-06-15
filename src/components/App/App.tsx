@@ -1,72 +1,78 @@
-import { useEffect, useState } from "react";
+import { fetchNotes } from "../../services/noteService";
+import NoteList from "../NoteList/NoteList";
+import NoteModal from "../NoteModal/NoteModal";
+import Pagination from "../Pagination/Pagination";
+import SearchBox from "../SearchBox/SearchBox";
+import css from "./App.module.css";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import toast, { Toaster } from "react-hot-toast";
-
-import SearchBar from "../SearchBar/SearchBar";
-import MovieGrid from "../MovieGrid/MovieGrid";
+import { useState } from "react";
+import { useDebounce } from "use-debounce";
 import Loader from "../Loader/Loader";
-import ErrorMessage from "../ErrorMessage/ErrorMessage";
-import MovieModal from "../MovieModal/MovieModal";
-import PaginatedItems from "../ReactPaginate/ReactPaginate";
-
-import fetchMovies from "../../services/movieService";
-import type { Movie } from "../../types/movie";
 
 export default function App() {
-  const [query, setQuery] = useState("");
-  const [page, setPage] = useState(1);
-  const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [query, setQuery] = useState<string>("");
+  const [debouncedQuery] = useDebounce<string>(query, 1000);
+  const [modalOpen, setModalOpen] = useState<boolean>(false);
 
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["movies", query, page],
-    queryFn: () => fetchMovies({ query, page }),
-    enabled: !!query,
-    placeholderData: keepPreviousData, 
+  const {
+    data,
+ 
+    isLoading,
+    isSuccess,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ["Notes", debouncedQuery, currentPage],
+    queryFn: () => fetchNotes(debouncedQuery, currentPage),
+    placeholderData: keepPreviousData,
   });
 
-  const movies = data?.results ?? [];
-  const totalPages = data?.total_pages ?? 0;
+  const handleModalOpen = (): void => setModalOpen(true);
+  const handleModalClose = (): void => setModalOpen(false);
 
-  function handleSearch(newQuery: string) {
-    setQuery(newQuery);
-    setPage(1);
-  }
-
-
-  useEffect(() => {
-    if (!isLoading && !isError && query && movies.length === 0) {
-      toast.error("No movies found for your request.");
-    }
-  }, [isLoading, isError, query, movies]);
+  const handlePageChange = (page: number) => setCurrentPage(page);
+  const handleQueryChange = (value: string): void => {
+    setQuery(value);
+    setCurrentPage(1);
+  };
 
   return (
-    <>
-      <SearchBar onSubmit={handleSearch} />
+    <div className={css.app}>
+      <header className={css.toolbar}>
+        <SearchBox onChange={handleQueryChange} value={query} />
+        {isLoading && <Loader />}
+        {isSuccess && data.totalPages > 1 && (
+          <Pagination
+            pageCount={data.totalPages}
+            onPageChange={handlePageChange}
+            currentPage={currentPage}
+          />
+        )}
+        <button className={css.button} onClick={handleModalOpen}>
+          Create note +
+        </button>
+      </header>
 
-      {isLoading && <Loader />}
-      {isError && <ErrorMessage />}
-
-      {!isLoading && !isError && movies.length > 0 && (
-        <>
-          <MovieGrid movies={movies} onSelect={setSelectedMovie} />
-          {totalPages > 1 && (
-            <PaginatedItems
-              pageCount={totalPages}
-              currentPage={page}
-              onPageChange={(selectedPage) => setPage(selectedPage)}
-            />
-          )}
-        </>
+      {isError && (
+        <p className={css.loaderror}>
+          An error occurred: {(error as Error).message}, please reload the page!
+        </p>
       )}
 
-      {selectedMovie && (
-        <MovieModal
-          movie={selectedMovie}
-          onClose={() => setSelectedMovie(null)}
+    {isSuccess && data?.notes?.length > 0 && <NoteList notes={data.notes} />}
+
+
+      {modalOpen && (
+        <NoteModal
+          onClose={handleModalClose}
+          onSuccess={() => {
+            refetch();
+            handleModalClose();
+          }}
         />
       )}
-
-      <Toaster position="top-right" />
-    </>
+    </div>
   );
 }
