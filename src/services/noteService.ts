@@ -1,10 +1,15 @@
 import axios from "axios";
-import type { Note, NewNoteData, NotesResponse } from "../types/note";
+import type { Note, NewNoteData } from "../types/note";
 
 const API_URL = "https://notehub-public.goit.study/api/notes/";
 const NOTES_PER_PAGE = 12;
 
 const myToken = import.meta.env.VITE_NOTEHUB_TOKEN;
+
+export interface NotesResponse {
+  notes: Note[];
+  totalPages: number;
+}
 
 axios.interceptors.request.use((config) => {
   if (myToken) {
@@ -29,7 +34,7 @@ export async function fetchNotes(query: string, page: number): Promise<NotesResp
   }
 }
 
-export async function removeNote(id: string): Promise<Note> {
+export async function removeNote(id: number): Promise<Note> {
   try {
     const response = await axios.delete<Note>(`${API_URL}${id}`);
     return response.data;
